@@ -33,7 +33,7 @@ func keyValuePutHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 
-	log.Print("PUT", key, value)
+	log.Print("PUT ", key, " ", value)
 }
 
 func keyValueGetHandler(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +54,7 @@ func keyValueGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Write([]byte(value))
 
-	log.Print("GET", key, value)
+	log.Print("GET ", key, " ", value)
 }
 
 func keyDeleteValueHandler(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +68,7 @@ func keyDeleteValueHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Print("DELETE", key)
+	log.Print("DELETE ", key)
 
 }
 

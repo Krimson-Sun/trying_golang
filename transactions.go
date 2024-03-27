@@ -25,6 +25,9 @@ type Event struct {
 type TransactionLogger interface {
 	WriteDelete(key string)
 	WritePut(key, value string)
+	Err() <-chan error
+	ReadEvents() (<-chan Event, <-chan error)
+	Run()
 }
 
 type fileTransactionLogger struct {
@@ -37,6 +40,7 @@ type fileTransactionLogger struct {
 }
 
 func (l *fileTransactionLogger) WritePut(key, value string) {
+	l.wg.Add(1)
 	l.events <- Event{EventType: EventPut, key: key, value: value}
 }
 
@@ -49,11 +53,13 @@ func (l *fileTransactionLogger) Err() <-chan error {
 }
 
 func NewFileTransactionLogger(filename string) (TransactionLogger, error) {
-	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+	var err error
+	var lgr = fileTransactionLogger{wg: &sync.WaitGroup{}}
+	lgr.file, err = os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 	if err != nil {
 		return nil, fmt.Errorf("error opening file: %w", err)
 	}
-	return &fileTransactionLogger{file: file}, nil
+	return &lgr, nil
 }
 
 func (l *fileTransactionLogger) Run() {
@@ -67,7 +73,7 @@ func (l *fileTransactionLogger) Run() {
 		for e := range events {
 			l.lastSequence++
 
-			_, err := fmt.Fprintf(l.file, "%d\t%c\t%s\t%s\n", l.lastSequence, e.EventType, e.key, e.value)
+			_, err := fmt.Fprintf(l.file, "%d\t%d\t%s\t%s\n", l.lastSequence, e.EventType, e.key, e.value)
 
 			if err != nil {
 				errors <- fmt.Errorf("error writing to log file: %w", err)
@@ -101,6 +107,7 @@ func (l *fileTransactionLogger) ReadEvents() (<-chan Event, <-chan error) {
 
 			if l.lastSequence >= e.Sequence {
 				outError <- fmt.Errorf("transaction number out of sequence: %d >= %d", l.lastSequence, e.Sequence)
+				return
 			}
 			l.lastSequence = e.Sequence
 			outEvent <- e

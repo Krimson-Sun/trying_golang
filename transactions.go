@@ -99,7 +99,7 @@ func (l *fileTransactionLogger) ReadEvents() (<-chan Event, <-chan error) {
 		for scanner.Scan() {
 			line := scanner.Text()
 
-			if _, err := fmt.Scanf(line, "%d\t%d\t%s\t%s\n",
+			if _, err := fmt.Sscanf(line, "%d\t%d\t%s\t%s\n",
 				&e.Sequence, &e.EventType, &e.key, &e.value); err != nil {
 				outError <- fmt.Errorf("input parse error: %w", err)
 				return
@@ -114,6 +114,7 @@ func (l *fileTransactionLogger) ReadEvents() (<-chan Event, <-chan error) {
 		}
 
 		if err := scanner.Err(); err != nil {
+			fmt.Println(err)
 			outError <- fmt.Errorf("error reading from log file: %w", err)
 			return
 		}

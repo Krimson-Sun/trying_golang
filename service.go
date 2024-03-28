@@ -20,13 +20,15 @@ func initTransactionLogger() error {
 		return fmt.Errorf("failed when create event logger: %w", err)
 	}
 
-	events, errors := logger.ReadEvents()
+	events, errorsCh := logger.ReadEvents()
 	e, ok := Event{}, true
 
-	for ok && err == nil {
+	for ok {
 		select {
-		case err, ok = <-errors:
-
+		case errFromCh := <-errorsCh:
+			if errFromCh != nil {
+				return errFromCh
+			}
 		case e, ok = <-events:
 			switch e.EventType {
 			case EventDelete:

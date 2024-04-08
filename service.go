@@ -14,7 +14,13 @@ var logger TransactionLogger
 
 func initTransactionLogger() error {
 	var err error
-	logger, err = NewFileTransactionLogger("transactions.log")
+	logger, err = NewPgTransactionLogger(PgDbparams{
+		DbName:   "postgres",
+		host:     "localhost",
+		user:     "postgres",
+		password: "d70437043",
+		port:     5432,
+	})
 
 	if err != nil {
 		return fmt.Errorf("failed when create event logger: %w", err)
@@ -124,6 +130,7 @@ func NotAllowedHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	err := initTransactionLogger()
+
 	if err != nil {
 		panic(err)
 	}

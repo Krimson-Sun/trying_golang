@@ -15,6 +15,7 @@ type PgTransactionLogger struct {
 }
 
 func (l *PgTransactionLogger) WritePut(key, value string) {
+	l.wg.Add(1)
 	l.events <- Event{
 		EventType: EventPut,
 		key:       key,
@@ -38,13 +39,16 @@ type PgDbparams struct {
 	host     string
 	user     string
 	password string
+	port     int
 }
 
 func NewPgTransactionLogger(params PgDbparams) (TransactionLogger, error) {
-	db, err := sql.Open("postgres", fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
-		params.host, params.user, params.password, params.DbName))
+	db, err := sql.Open("postgres", fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		params.host, params.port, params.user, params.password, params.DbName))
 	if err != nil {
 		return nil, fmt.Errorf("db connection failed %w", err)
+	} else {
+		fmt.Println("db connection success")
 	}
 
 	err = db.Ping()
@@ -53,43 +57,19 @@ func NewPgTransactionLogger(params PgDbparams) (TransactionLogger, error) {
 	}
 	lgr := &PgTransactionLogger{db: db, wg: &sync.WaitGroup{}}
 
-	exist, err := lgr.verifyTableExists()
-	if err != nil {
-		return nil, fmt.Errorf("table exists failed %w", err)
-	}
-	if !exist {
-		if err = lgr.createTable(); err != nil {
-			return nil, fmt.Errorf("create table failed %w", err)
-		}
+	if err = lgr.createTable(); err != nil {
+		return nil, fmt.Errorf("create table failed %w", err)
 	}
 
 	return lgr, nil
 
 }
 
-func (l *PgTransactionLogger) verifyTableExists() (bool, error) {
-	const table = "transactions"
-
-	var result string
-
-	rows, err := l.db.Query(fmt.Sprintf("SELECT to_regclass(public.%s)", table))
-	defer rows.Close()
-	if err != nil {
-		return false, err
-	}
-
-	for rows.Next() && result != table {
-		rows.Scan(&result)
-	}
-
-	return table == result, rows.Err()
-}
-
 func (l *PgTransactionLogger) createTable() error {
 	var err error
-	_, err = l.db.Exec(`CREATE TABLE transactions (
+	_, err = l.db.Exec(`CREATE TABLE IF NOT EXISTS transactions (
 		sequence 	BIGSERIAL PRIMARY KEY,
-		even_type 	BYTE NOT NULL,
+		event_type 	int NOT NULL,
 		key 		TEXT NOT NULL,
 		value 		TEXT
 	);`)
